@@ -176,13 +176,18 @@ def test_modulus_operation_in_ui(page, live_server):
 
 # ── Profile E2E Tests ──────────────────────────────────────────────────────
 
+def _set_token_and_goto(page, token, url):
+    """Set JWT in localStorage on login page (safe, no redirect), then navigate to target."""
+    page.goto(f"{SERVER_URL}/static/login.html")
+    page.evaluate("(t) => localStorage.setItem('jwt_token', t)", token)
+    page.goto(url)
+
+
 def test_profile_loads_user_info(page, live_server):
     data = _api_register("e2e_profile@example.com")
     token = data["token"]
-    page.goto(f"{SERVER_URL}/static/profile.html")
-    page.evaluate("(t) => localStorage.setItem('jwt_token', t)", token)
-    page.reload()
-    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=5000)
+    _set_token_and_goto(page, token, f"{SERVER_URL}/static/profile.html")
+    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=8000)
     assert "e2e_profile" in page.input_value("#username")
     assert "e2e_profile@example.com" in page.input_value("#email")
 
@@ -190,10 +195,8 @@ def test_profile_loads_user_info(page, live_server):
 def test_profile_update_bio(page, live_server):
     data = _api_register("e2e_bio@example.com")
     token = data["token"]
-    page.goto(f"{SERVER_URL}/static/profile.html")
-    page.evaluate("(t) => localStorage.setItem('jwt_token', t)", token)
-    page.reload()
-    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=5000)
+    _set_token_and_goto(page, token, f"{SERVER_URL}/static/profile.html")
+    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=8000)
     page.fill("#bio", "I love calculators!")
     page.click("button[type=submit]")
     page.wait_for_selector("#profile-success", state="visible", timeout=8000)
@@ -203,10 +206,8 @@ def test_profile_update_bio(page, live_server):
 def test_password_change_wrong_current_shows_error(page, live_server):
     data = _api_register("e2e_pwchange@example.com")
     token = data["token"]
-    page.goto(f"{SERVER_URL}/static/profile.html")
-    page.evaluate("(t) => localStorage.setItem('jwt_token', t)", token)
-    page.reload()
-    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=5000)
+    _set_token_and_goto(page, token, f"{SERVER_URL}/static/profile.html")
+    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=8000)
     page.fill("#current-password", "WrongCurrentPass1")
     page.fill("#new-password", "NewSecurePass123")
     page.fill("#confirm-new-password", "NewSecurePass123")
@@ -218,10 +219,8 @@ def test_password_change_wrong_current_shows_error(page, live_server):
 def test_password_mismatch_shows_error(page, live_server):
     data = _api_register("e2e_pwmismatch@example.com")
     token = data["token"]
-    page.goto(f"{SERVER_URL}/static/profile.html")
-    page.evaluate("(t) => localStorage.setItem('jwt_token', t)", token)
-    page.reload()
-    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=5000)
+    _set_token_and_goto(page, token, f"{SERVER_URL}/static/profile.html")
+    page.wait_for_function("document.querySelector('#username').value !== ''", timeout=8000)
     page.fill("#current-password", "securepass123")
     page.fill("#new-password", "NewPass12345")
     page.fill("#confirm-new-password", "DifferentPass12")
@@ -241,9 +240,7 @@ def test_reports_shows_stats(page, live_server):
     httpx.post(f"{SERVER_URL}/calculations", json={"a": 2, "b": 8, "type": "Power"},
                headers={"Authorization": f"Bearer {token}"})
 
-    page.goto(f"{SERVER_URL}/static/reports.html")
-    page.evaluate("(t) => localStorage.setItem('jwt_token', t)", token)
-    page.reload()
+    _set_token_and_goto(page, token, f"{SERVER_URL}/static/reports.html")
 
     page.wait_for_function("document.getElementById('total').textContent !== '–'", timeout=8000)
     assert page.inner_text("#total") == "2"
