@@ -1,6 +1,7 @@
 """
 Integration tests for all API routes: auth, BREAD, profile, password change, and reports.
 """
+import pytest
 
 
 def _register(client, username="testuser", email=None, password="pass1234"):
