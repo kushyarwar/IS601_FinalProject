@@ -1,10 +1,10 @@
 """
 Calculation BREAD routes (Browse, Read, Edit, Add, Delete).
 
-Every route is scoped to the authenticated user — queries always filter
-by user_id so users can never read or modify each other's calculations.
-Unauthenticated requests receive 401; cross-user resource requests
-receive 404 to avoid leaking whether a resource exists.
+Every route is strictly scoped to the authenticated user — queries always
+filter by user_id so users can never read or modify each other's calculations.
+Unauthenticated requests receive 401; cross-user resource requests receive
+404 to avoid leaking whether a resource exists.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -16,25 +16,6 @@ from app.calculator import CalculationFactory, OperationType
 from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/calculations", tags=["Calculations"])
-
-
-@router.get("/join/all", response_model=List[schemas.CalculationWithUser])
-def calculations_with_users(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    rows = (
-        db.query(models.Calculation, models.User.username)
-        .join(models.User, models.Calculation.user_id == models.User.id)
-        .all()
-    )
-    return [schemas.CalculationWithUser(
-        username=username,
-        a=calc.a,
-        b=calc.b,
-        type=calc.type,
-        result=calc.result,
-    ) for calc, username in rows]
 
 
 @router.get("/", response_model=List[schemas.CalculationRead])

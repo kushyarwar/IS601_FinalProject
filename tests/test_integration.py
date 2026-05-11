@@ -192,10 +192,27 @@ def test_delete_other_users_account_forbidden(client):
 
 
 def test_user_routes_require_auth(client):
-    assert client.get("/users/").status_code == 401
     assert client.get("/users/1").status_code == 401
     assert client.delete("/users/1").status_code == 401
-    assert client.get("/calculations/join/all").status_code == 401
+    assert client.get("/users/me/profile").status_code == 401
+    assert client.put("/users/me/profile", json={}).status_code == 401
+    assert client.post("/users/me/change-password", json={
+        "current_password": "a", "new_password": "b"
+    }).status_code == 401
+
+
+def test_get_user_by_id_self_only(client):
+    user_id, token = _register(client, "self_view")
+    res = client.get(f"/users/{user_id}", headers=_headers(token))
+    assert res.status_code == 200
+    assert res.json()["username"] == "self_view"
+
+
+def test_get_user_by_id_other_user_forbidden(client):
+    _, token_a = _register(client, "viewer_a")
+    user_b_id, _ = _register(client, "viewer_b")
+    res = client.get(f"/users/{user_b_id}", headers=_headers(token_a))
+    assert res.status_code == 403
 
 
 # ── Profile Feature Tests ──────────────────────────────────────────────────
