@@ -1,3 +1,9 @@
+"""
+Authentication routes: user registration and login.
+
+Both endpoints return a JWT on success so the client can immediately
+make authenticated requests without a second round-trip.
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 

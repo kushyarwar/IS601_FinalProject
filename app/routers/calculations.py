@@ -1,3 +1,11 @@
+"""
+Calculation BREAD routes (Browse, Read, Edit, Add, Delete).
+
+Every route is scoped to the authenticated user — queries always filter
+by user_id so users can never read or modify each other's calculations.
+Unauthenticated requests receive 401; cross-user resource requests
+receive 404 to avoid leaking whether a resource exists.
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List

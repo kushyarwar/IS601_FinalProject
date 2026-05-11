@@ -1,3 +1,9 @@
+"""
+Reports routes providing per-user usage statistics.
+
+The summary endpoint aggregates calculation counts, most-used operation,
+average result, and last calculation — all scoped to the authenticated user.
+"""
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 

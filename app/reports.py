@@ -1,9 +1,25 @@
+"""
+Report aggregation logic for the usage statistics dashboard.
+
+All queries are scoped to a single user so no cross-user data leaks
+into the summary response.
+"""
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app import models
 
 
 def get_user_summary(user_id: int, db: Session) -> dict:
+    """
+    Build a usage summary for the given user.
+
+    Returns:
+        total_calculations: count of all calculations for this user
+        most_used_operation: the operation type with the highest count, or None
+        average_result: mean of all result values rounded to 4 decimals, or None
+        last_calculation: the most recently created Calculation ORM object, or None
+        operation_counts: dict mapping each operation name to its count
+    """
     total = db.query(func.count(models.Calculation.id)).filter(
         models.Calculation.user_id == user_id
     ).scalar() or 0
@@ -12,6 +28,7 @@ def get_user_summary(user_id: int, db: Session) -> dict:
         models.Calculation.user_id == user_id
     ).scalar()
 
+    # Group by operation type to build the breakdown chart
     counts_rows = (
         db.query(models.Calculation.type, func.count(models.Calculation.id))
         .filter(models.Calculation.user_id == user_id)

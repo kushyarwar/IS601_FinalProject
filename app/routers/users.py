@@ -1,3 +1,10 @@
+"""
+User management routes: list, get, delete, profile update, password change.
+
+All routes require a valid JWT. DELETE /users/{id} additionally enforces
+that a user may only delete their own account (403 otherwise) to prevent
+privilege escalation.
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
