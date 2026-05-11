@@ -180,8 +180,22 @@ def test_modulus_by_zero_rejected(client):
 def test_delete_user_cascades_calculations(client):
     user_id, token = _register(client, "cascade_user")
     _add_calc(client, token, 5, 5, "Add")
-    assert client.delete(f"/users/{user_id}").status_code == 204
+    assert client.delete(f"/users/{user_id}", headers=_headers(token)).status_code == 204
     assert client.get("/calculations", headers=_headers(token)).status_code == 401
+
+
+def test_delete_other_users_account_forbidden(client):
+    _, token_a = _register(client, "account_a")
+    user_b_id, _ = _register(client, "account_b")
+    res = client.delete(f"/users/{user_b_id}", headers=_headers(token_a))
+    assert res.status_code == 403
+
+
+def test_user_routes_require_auth(client):
+    assert client.get("/users/").status_code == 401
+    assert client.get("/users/1").status_code == 401
+    assert client.delete("/users/1").status_code == 401
+    assert client.get("/calculations/join/all").status_code == 401
 
 
 # ── Profile Feature Tests ──────────────────────────────────────────────────
