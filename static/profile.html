@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile – Calculator App</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f5f7fa; color: #1f2933; min-height: 100vh; }
+        header { background: #263238; color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+        header h1 { font-size: 22px; font-weight: 700; }
+        .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nav a, .nav button { color: white; border: 1px solid rgba(255,255,255,0.5); background: transparent; border-radius: 4px; padding: 8px 12px; text-decoration: none; cursor: pointer; font-size: 14px; }
+        .nav a:hover, .nav button:hover { background: rgba(255,255,255,0.1); }
+        main { width: min(800px, calc(100% - 32px)); margin: 24px auto; display: flex; flex-direction: column; gap: 24px; }
+        section { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 24px; }
+        h2 { font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid #d9e2ec; padding-bottom: 10px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #334e68; }
+        input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #bcccdc; border-radius: 4px; font-size: 15px; }
+        textarea { resize: vertical; min-height: 80px; }
+        input:focus, textarea:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.12); }
+        .actions { display: flex; gap: 10px; margin-top: 8px; }
+        button.primary { background: #1976d2; border: 1px solid #1976d2; color: white; }
+        button.warning { background: #e65100; border: 1px solid #e65100; color: white; }
+        button { border-radius: 4px; padding: 10px 16px; cursor: pointer; font-weight: 700; font-size: 14px; }
+        .msg { margin-bottom: 16px; padding: 10px 12px; border-radius: 4px; display: none; font-size: 14px; }
+        .msg-error { color: #b71c1c; background: #ffebee; }
+        .msg-success { color: #1b5e20; background: #e8f5e9; }
+        .meta { font-size: 13px; color: #627d98; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>My Profile</h1>
+        <div class="nav">
+            <a href="/static/calculations.html">Calculations</a>
+            <a href="/static/reports.html">Reports</a>
+            <button id="logout-btn" type="button">Logout</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Profile Info -->
+        <section>
+            <h2>Account Information</h2>
+            <div id="profile-error" class="msg msg-error"></div>
+            <div id="profile-success" class="msg msg-success"></div>
+            <form id="profile-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" maxlength="50" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="bio">Bio <span style="font-weight:normal;color:#627d98">(optional)</span></label>
+                    <textarea id="bio" maxlength="500" placeholder="Tell us a bit about yourself..."></textarea>
+                </div>
+                <p class="meta" id="member-since"></p>
+                <div class="actions" style="margin-top: 16px;">
+                    <button class="primary" type="submit">Save Changes</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Change Password -->
+        <section>
+            <h2>Change Password</h2>
+            <div id="pw-error" class="msg msg-error"></div>
+            <div id="pw-success" class="msg msg-success"></div>
+            <form id="pw-form">
+                <div class="form-group">
+                    <label for="current-password">Current Password</label>
+                    <input type="password" id="current-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">New Password</label>
+                    <input type="password" id="new-password" placeholder="Min 8 characters" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-new-password">Confirm New Password</label>
+                    <input type="password" id="confirm-new-password" required>
+                </div>
+                <div class="actions">
+                    <button class="warning" type="submit">Change Password</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        function token() { return localStorage.getItem('jwt_token'); }
+
+        function authHeaders() {
+            return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token() };
+        }
+
+        async function api(path, options = {}) {
+            if (!token()) { window.location.href = '/static/login.html'; throw new Error('Not logged in'); }
+            const res = await fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+            if (res.status === 204) return null;
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Request failed.');
+            return data;
+        }
+
+        function showMsg(id, msg) {
+            const el = document.getElementById(id);
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        function clearMsg(...ids) {
+            ids.forEach(id => { document.getElementById(id).style.display = 'none'; });
+        }
+
+        async function loadProfile() {
+            try {
+                const user = await api('/users/me/profile');
+                document.getElementById('username').value = user.username;
+                document.getElementById('email').value = user.email;
+                document.getElementById('bio').value = user.bio || '';
+                if (user.created_at) {
+                    const date = new Date(user.created_at).toLocaleDateString();
+                    document.getElementById('member-since').textContent = 'Member since ' + date;
+                }
+            } catch (err) {
+                showMsg('profile-error', 'Failed to load profile: ' + err.message);
+            }
+        }
+
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearMsg('profile-error', 'profile-success');
+            const payload = {
+                username: document.getElementById('username').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                bio: document.getElementById('bio').value.trim() || null,
+            };
+            try {
+                await api('/users/me/profile', { method: 'PUT', body: JSON.stringify(payload) });
+                showMsg('profile-success', 'Profile updated successfully!');
+            } catch (err) {
+                showMsg('profile-error', err.message);
+            }
+        });
+
+        document.getElementById('pw-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearMsg('pw-error', 'pw-success');
+            const current = document.getElementById('current-password').value;
+            const newPw = document.getElementById('new-password').value;
+            const confirm = document.getElementById('confirm-new-password').value;
+
+            if (newPw.length < 8) {
+                showMsg('pw-error', 'New password must be at least 8 characters.');
+                return;
+            }
+            if (newPw !== confirm) {
+                showMsg('pw-error', 'New passwords do not match.');
+                return;
+            }
+            if (current === newPw) {
+                showMsg('pw-error', 'New password must differ from your current password.');
+                return;
+            }
+            try {
+                await api('/users/me/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ current_password: current, new_password: newPw }),
+                });
+                showMsg('pw-success', 'Password changed successfully! Please log in again.');
+                document.getElementById('pw-form').reset();
+                setTimeout(() => {
+                    localStorage.removeItem('jwt_token');
+                    window.location.href = '/static/login.html';
+                }, 2000);
+            } catch (err) {
+                showMsg('pw-error', err.message);
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('jwt_token');
+            window.location.href = '/static/login.html';
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports – Calculator App</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f5f7fa; color: #1f2933; min-height: 100vh; }
+        header { background: #263238; color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+        header h1 { font-size: 22px; font-weight: 700; }
+        .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nav a, .nav button { color: white; border: 1px solid rgba(255,255,255,0.5); background: transparent; border-radius: 4px; padding: 8px 12px; text-decoration: none; cursor: pointer; font-size: 14px; }
+        .nav a:hover, .nav button:hover { background: rgba(255,255,255,0.1); }
+        main { width: min(1000px, calc(100% - 32px)); margin: 24px auto; display: flex; flex-direction: column; gap: 24px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+        .stat-card { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 20px; text-align: center; }
+        .stat-card .value { font-size: 36px; font-weight: 700; color: #1976d2; margin-bottom: 6px; }
+        .stat-card .label { font-size: 13px; color: #627d98; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 24px; }
+        h2 { font-size: 18px; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 10px; border-bottom: 1px solid #d9e2ec; text-align: left; }
+        th { background: #f0f4f8; color: #334e68; }
+        .bar-wrap { background: #e8f0fe; border-radius: 4px; height: 20px; overflow: hidden; }
+        .bar { background: #1976d2; height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .msg { padding: 10px 12px; border-radius: 4px; display: none; font-size: 14px; margin-bottom: 16px; }
+        .msg-error { color: #b71c1c; background: #ffebee; }
+        .last-calc { font-size: 15px; color: #334e68; }
+        .last-calc span { font-weight: bold; color: #1976d2; }
+        .empty { color: #627d98; font-style: italic; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Usage Reports</h1>
+        <div class="nav">
+            <a href="/static/calculations.html">Calculations</a>
+            <a href="/static/profile.html">Profile</a>
+            <button id="logout-btn" type="button">Logout</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="error-msg" class="msg msg-error"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="value" id="total">–</div>
+                <div class="label">Total Calculations</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="most-used">–</div>
+                <div class="label">Most Used Operation</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="avg-result">–</div>
+                <div class="label">Average Result</div>
+            </div>
+        </div>
+
+        <section>
+            <h2>Operations Breakdown</h2>
+            <table id="ops-table">
+                <thead>
+                    <tr><th>Operation</th><th>Count</th><th>Usage</th></tr>
+                </thead>
+                <tbody id="ops-body"></tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Last Calculation</h2>
+            <div id="last-calc-box" class="last-calc"></div>
+        </section>
+    </main>
+
+    <script>
+        function token() { return localStorage.getItem('jwt_token'); }
+
+        function authHeaders() {
+            return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token() };
+        }
+
+        function opSymbol(type) {
+            return { Add: '+', Sub: '−', Multiply: '×', Divide: '÷', Power: '^', Modulus: '%' }[type] || type;
+        }
+
+        async function loadReport() {
+            if (!token()) { window.location.href = '/static/login.html'; return; }
+            try {
+                const res = await fetch('/reports/summary', { headers: authHeaders() });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.detail || 'Failed to load report');
+                }
+                const data = await res.json();
+
+                document.getElementById('total').textContent = data.total_calculations;
+                document.getElementById('most-used').textContent = data.most_used_operation || '–';
+                document.getElementById('avg-result').textContent =
+                    data.average_result !== null ? data.average_result : '–';
+
+                const tbody = document.getElementById('ops-body');
+                tbody.innerHTML = '';
+                const total = data.total_calculations || 1;
+                const ops = data.operation_counts;
+                const allOps = ['Add', 'Sub', 'Multiply', 'Divide', 'Power', 'Modulus'];
+                allOps.forEach(op => {
+                    const count = ops[op] || 0;
+                    const pct = Math.round((count / total) * 100);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${op} (${opSymbol(op)})</td>
+                        <td>${count}</td>
+                        <td>
+                            <div class="bar-wrap">
+                                <div class="bar" style="width:${count ? pct : 0}%"></div>
+                            </div>
+                            <small>${count ? pct + '%' : '0%'}</small>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                const lastBox = document.getElementById('last-calc-box');
+                if (data.last_calculation) {
+                    const c = data.last_calculation;
+                    const ts = c.timestamp ? new Date(c.timestamp).toLocaleString() : '';
+                    lastBox.innerHTML = `
+                        <span>${c.a}</span> ${opSymbol(c.type)} <span>${c.b}</span>
+                        = <span>${c.result}</span>
+                        ${ts ? '<br><small style="color:#627d98">at ' + ts + '</small>' : ''}
+                    `;
+                } else {
+                    lastBox.innerHTML = '<span class="empty">No calculations yet.</span>';
+                }
+            } catch (err) {
+                const el = document.getElementById('error-msg');
+                el.textContent = err.message;
+                el.style.display = 'block';
+            }
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('jwt_token');
+            window.location.href = '/static/login.html';
+        });
+
+        loadReport();
+    </script>
+</body>
+</html>
